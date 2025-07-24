@@ -1,2 +1,2 @@
-def execute_plan():
+def execute_plan(plan):
     pass

@@ -69,7 +69,7 @@ def valid_format(sql_text: str) -> LogicalPlan | None:
     # get order by
     order_by = None
     if oby_idx != -1:
-        if oby_dir_idx == -1:
+        if oby_dir_idx != -1:
             order_by = tokens[oby_idx + 2 : oby_dir_idx]
         else:
             order_by = tokens[oby_idx + 2 : len(tokens)]
@@ -77,22 +77,6 @@ def valid_format(sql_text: str) -> LogicalPlan | None:
     return LogicalPlan(col_proj=col_proj, source_tables=source_tables, 
                         filter=filter_clause, order_by=order_by, order_dir=order_by_dir)
 
-def table_exists(table) -> bool:
-    pass
-
-def typecheck(plan) -> bool:
-    if not plan:
-        return False
-
-    source = plan.source_tables
-    # check whether each table exists in our database
-    for table in source:
-        if not table_exists(table):
-            return False
-    
-    columns = plan.col_proj
-
-    pass
 
 def parse_query(sql_text: str) -> LogicalPlan:
 
@@ -107,8 +91,6 @@ def parse_query(sql_text: str) -> LogicalPlan:
     logical_plan = valid_format(sql_text)
     if not logical_plan:
         raise ValueError("Invalid query format")
-
-    if not typecheck(logical_plan):
-        raise ValueError("SQL query failed type checks")
-
-    # TODO: Tokenize SQL and construct logical operator tree
+    
+    print(logical_plan)
+    return logical_plan    
