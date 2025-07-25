@@ -1,4 +1,21 @@
 from planner.logical_plan import LogicalPlan
+from collections import defaultdict
+import logging
+
+def reformat_col_proj(col_proj: str):
+    col_proj_dict = defaultdict(list)
+    col_proj = col_proj.split(',')
+    for col in col_proj:
+        if '.' in col:
+            table, column = col.split('.', 1)
+            col_proj_dict[table].append(column)
+        else:
+            col_proj_dict[None].append(col)
+    return col_proj_dict
+
+def reformat_source_tables(source_tables: str) -> list:
+    source_tables = source_tables.split(',')
+    return source_tables
 
 def valid_format(sql_text: str) -> LogicalPlan | None:
     if not sql_text:
@@ -11,7 +28,7 @@ def valid_format(sql_text: str) -> LogicalPlan | None:
 
     tokens = sql_text.split()
 
-    if not tokens[0] == "SELECT":
+    if tokens[0] != "SELECT":
         return False
     
     try:
@@ -41,12 +58,11 @@ def valid_format(sql_text: str) -> LogicalPlan | None:
             order_by_dir = "DESC"
         except ValueError:
             oby_dir_idx = -1
-            order_by_dir = None
-    
-    col_proj = tokens[sel_idx + 1 : from_idx] # get column projections
-    if not col_proj:
-        return False
-    
+            if oby_idx != -1:
+                order_by_dir = "ASC"
+            else:
+                order_by_dir = None
+
     # get source tables
     if where_idx == -1 and oby_idx == -1:
         source_tables = tokens[from_idx + 1 : len(tokens)]
@@ -57,7 +73,17 @@ def valid_format(sql_text: str) -> LogicalPlan | None:
     
     if not source_tables:
         return False
+    else:
+        source_tables = reformat_source_tables("".join(source_tables))
 
+    # get column projection
+    col_proj = reformat_col_proj("".join(tokens[sel_idx + 1 : from_idx]))
+    if not col_proj:
+        return False
+    
+    # check if select * query
+    sel_all = '*' in col_proj[None]
+    
     # get filters
     filter_clause = None
     if where_idx != -1:
@@ -75,22 +101,21 @@ def valid_format(sql_text: str) -> LogicalPlan | None:
             order_by = tokens[oby_idx + 2 : len(tokens)]
 
     return LogicalPlan(col_proj=col_proj, source_tables=source_tables, 
-                        filter=filter_clause, order_by=order_by, order_dir=order_by_dir)
+                        filter=filter_clause, order_by=order_by, order_dir=order_by_dir,
+                        sel_all=sel_all)
 
 
 def parse_query(sql_text: str) -> LogicalPlan:
 
     """Parses a SQL query string into a logical plan.
-
+    
     Args:
         sql_text (str): query string
-
     Returns:
         LogicalPlan: root of logical operator tree
+    
     """
     logical_plan = valid_format(sql_text)
     if not logical_plan:
         raise ValueError("Invalid query format")
-    
-    print(logical_plan)
     return logical_plan    

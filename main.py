@@ -1,6 +1,13 @@
 from parser.sql_parser import parse_query
 from executor.executor import execute_plan
 from semantic.validator import validate_logical_plan
+import logging
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='[%(levelname)s] %(asctime)s - %(message)s',
+    datefmt='%H:%M:%S'
+)
 
 if __name__ == "__main__":
     # 1. Get SQL statement from client
@@ -14,10 +21,14 @@ if __name__ == "__main__":
     except ValueError as error:
         print("Error:", error)
         exit(1)
-
+    logging.debug(f"{plan}")
     # 3. Validate logical plan
-    if not validate_logical_plan(plan):
-        raise ValueError("SQL query failed type checks")
+    try:
+        plan = validate_logical_plan(plan)
+    except (FileNotFoundError, ValueError) as error:
+        print("Error:", error)
+        exit(1)
+    logging.debug(f"{plan}")
 
     # 4: Schedule logical plan for execution
     results = execute_plan(plan)
