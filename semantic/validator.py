@@ -1,5 +1,6 @@
 import os
 import logging
+import re
 from pyarrow import parquet as pq
 from collections import defaultdict
 
@@ -13,7 +14,64 @@ def load_table_schema(data_dir, table):
         raise RuntimeError(f"Failed to read schema for table {table}: {str(e)}")
     return set([col.lower() for col in schema.names]), schema
 
-def validate_logical_plan(plan) -> bool:
+def order_by_validator(plan, data_dir) -> bool:
+    # check if columns in order by exists in schema
+    order_by_dict = defaultdict(list)
+    source = plan.source_tables
+    if plan.order_by:
+        for col in plan.order_by:
+            if '.' in col:
+                table_name, col_name = col.split('.', 1)
+                if table_name not in source:
+                    raise ValueError(f"ORDER BY references unknown table {table_name}")
+                file_path = os.path.join(data_dir, f"{table_name}.parquet")
+                schema = pq.read_schema(file_path)
+                columns = set([c.lower() for c in schema.names])
+                if col_name.lower() not in columns:
+                    raise ValueError(f"ORDER BY column {col} not found in table {table_name}")
+            else:
+                for table in source:
+                    columns, schema = load_table_schema(data_dir, table)
+                    if col.lower() in columns:
+                        order_by_dict[col].append(table)
+        
+        for oby_key, oby_val in order_by_dict.items():
+            if len(oby_val) > 1:
+                raise ValueError(f"Ambiguous order-by column: {oby_key} found in {oby_val}")
+    return True
+
+def where_clause_validator(plan, data_dir) -> bool:
+    where_clause = defaultdict(list)
+    source = plan.source_tables
+    if plan.filter:
+        # TO DO: add support for "OR" in chain of where clauses
+        clauses = re.split(r"\s+(and|or)\s+", plan.filter, flags=re.IGNORECASE)
+        for clause in clauses:
+            if 'and' == clause:
+                continue
+            (col, sign, value) = clause.split(" ")
+             # TO DO: prevent case like where name > 5
+            if '.' in col:
+                table_name, col = col.split('.', 1)
+                if table_name not in source:
+                    raise ValueError(f"WHERE clause references unknown table {table_name}")
+                file_path = os.path.join(data_dir, f"{table_name}.parquet")
+                schema = pq.read_schema(file_path)
+                columns = set([c.lower() for c in schema.names])
+                if col.lower() not in columns:
+                    raise ValueError(f"WHERE clause column {col} not found in table {table_name}")
+            else:
+                for table in source:
+                    columns, schema = load_table_schema(data_dir, table)
+                    if col.lower() in columns:
+                        where_clause[table].append((col, sign, value))
+                # TO DO: raise an assert here if a column is not found in any table
+        plan.filter = where_clause
+    else:
+        plan.filter = None
+    return True
+
+def validate_logical_plan(plan, data_dir) -> bool:
 
     """ Validate a logical plan
     
@@ -23,6 +81,7 @@ def validate_logical_plan(plan) -> bool:
             2. columns within source tables
             3. filter columns
             4. order by columns
+            5. where predicates
 
     Args:
         plan (LogicalPlan): logical plan
@@ -32,9 +91,6 @@ def validate_logical_plan(plan) -> bool:
     """
     if not plan:
         raise ValueError("No logical plan generated")
-    
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    data_dir = os.path.join(base_dir, "data")
     
     source = plan.source_tables
     
@@ -104,31 +160,17 @@ def validate_logical_plan(plan) -> bool:
             raise ValueError(f"Incorrect table name {table} specified")
     for table in source:
         if len(plan.col_proj[table]) == 0:
+            logging.debug(f"Removing table {table} from column projection list and source tables")
             del plan.col_proj[table]
+            plan.source_tables.remove(table)
         else:
             # remove duplicate columns
             plan.col_proj[table] = list(set(plan.col_proj[table]))
     
-    # check if columns in order by exists in schema
-    order_by_dict = defaultdict(list)
-    if plan.order_by:
-        for col in plan.order_by:
-            if '.' in col:
-                table_name, col_name = col.split('.', 1)
-                if table_name not in source:
-                    raise ValueError(f"ORDER BY references unknown table {table_name}")
-                file_path = os.path.join(data_dir, f"{table_name}.parquet")
-                schema = pq.read_schema(file_path)
-                columns = set([c.lower() for c in schema.names])
-                if col_name.lower() not in columns:
-                    raise ValueError(f"ORDER BY column {col} not found in table {table_name}")
-            else:
-                for table in source:
-                    columns, schema = load_table_schema(data_dir, table)
-                    if col.lower() in columns:
-                        order_by_dict[col].append(table)
-        
-        for oby_key, oby_val in order_by_dict.items():
-            if len(oby_val) > 1:
-                raise ValueError(f"Ambiguous order-by column: {oby_key} found in {oby_val}")
+    # validate order by clause
+    order_by_validator(plan, data_dir)
+    
+    # validate where clause
+    where_clause_validator(plan, data_dir)
+
     return plan

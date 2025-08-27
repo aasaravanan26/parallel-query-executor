@@ -74,6 +74,7 @@ def valid_format(sql_text: str) -> LogicalPlan | None:
     if not source_tables:
         return False
     else:
+        source_tables = [table.lower() for table in source_tables]
         source_tables = reformat_source_tables("".join(source_tables))
 
     # get column projection
@@ -91,6 +92,7 @@ def valid_format(sql_text: str) -> LogicalPlan | None:
             filter_clause = " ".join(tokens[where_idx + 1: len(tokens)])
         else:
             filter_clause = " ".join(tokens[where_idx + 1: oby_idx])
+        filter_clause = filter_clause.lower()
 
     # get order by
     order_by = None
@@ -99,6 +101,7 @@ def valid_format(sql_text: str) -> LogicalPlan | None:
             order_by = tokens[oby_idx + 2 : oby_dir_idx]
         else:
             order_by = tokens[oby_idx + 2 : len(tokens)]
+        order_by = [l.lower() for l in order_by]
 
     return LogicalPlan(col_proj=col_proj, source_tables=source_tables, 
                         filter=filter_clause, order_by=order_by, order_dir=order_by_dir,
