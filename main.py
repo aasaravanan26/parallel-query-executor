@@ -1,4 +1,4 @@
-from session.cli import handle_session_command
+from session.cli import handle_session_command, handle_desc_command
 from parser.sql_parser import parse_query
 from executor.executor import execute_plan
 from semantic.validator import validate_logical_plan
@@ -22,7 +22,17 @@ if __name__ == "__main__":
         
         # 1a. Handle session level tracing
         if handle_session_command(query):
-            continue
+            continue 
+
+        # 1b. Handle describe table
+        try:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            data_dir = os.path.join(base_dir, "data")
+            if handle_desc_command(query, data_dir=data_dir):
+                continue
+        except (FileNotFoundError, ValueError) as error:
+            print("Error:", error)
+            exit(1)
 
         # 2. Parse Query into a logical plan
         try:
@@ -47,7 +57,7 @@ if __name__ == "__main__":
             base_dir = os.path.dirname(os.path.abspath(__file__))
             data_dir = os.path.join(base_dir, "data")
             results = execute_plan(plan, data_dir)
-        except (FileNotFoundError, NotImplementedError, ValueError) as error:
+        except (FileNotFoundError, NotImplementedError, ValueError, KeyError) as error:
             print("Error:", error)
             exit(1)
 

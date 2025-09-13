@@ -1,6 +1,9 @@
 import logging
+from semantic.validator import load_table_schema
 
 def handle_session_command(cmd):
+    if not cmd:
+        return False
     cmd = cmd.strip().upper()
     if cmd.startswith("SET TRACE LEVEL"):
         parts = cmd.split()
@@ -24,4 +27,27 @@ def handle_session_command(cmd):
         print("LOGGER disabled.")
         return True
     return False
-    pass
+
+def handle_desc_command(cmd, data_dir):
+    if not cmd:
+        return False
+    cmd = cmd.strip().upper()
+    
+    if cmd.endswith(";"):
+        cmd = cmd[:-1]
+    
+    if cmd.startswith("DESC"):
+        table = cmd.split()
+        if len(table) == 1:
+            ValueError("Specify table to describe")
+        elif len(table) > 2:
+            ValueError("Too many tables specified")
+        else:
+            table = cmd.split()[-1]
+            _, schema = load_table_schema(data_dir=data_dir, table=table)
+            # Get column types
+            for name in schema.names:
+                field = schema.field(name)
+                print(f"{name}: {field.type}")
+            return True
+    return False

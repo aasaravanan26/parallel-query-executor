@@ -8,7 +8,7 @@ def reformat_col_proj(col_proj: str):
     for col in col_proj:
         if '.' in col:
             table, column = col.split('.', 1)
-            col_proj_dict[table].append(column)
+            col_proj_dict[table.lower()].append(column)
         else:
             col_proj_dict[None].append(col)
     return col_proj_dict
@@ -98,10 +98,13 @@ def valid_format(sql_text: str) -> LogicalPlan | None:
     order_by = None
     if oby_idx != -1:
         if oby_dir_idx != -1:
-            order_by = tokens[oby_idx + 2 : oby_dir_idx]
+            order_by_str = " ".join(tokens[oby_idx + 2 : oby_dir_idx])
         else:
-            order_by = tokens[oby_idx + 2 : len(tokens)]
-        order_by = [l.lower() for l in order_by]
+            order_by_str = " ".join(tokens[oby_idx + 2 :])
+        
+        if order_by_str:
+            order_by = [col.strip().lower() for col in order_by_str.split(",") if col.strip()]
+
 
     return LogicalPlan(col_proj=col_proj, source_tables=source_tables, 
                         filter=filter_clause, order_by=order_by, order_dir=order_by_dir,

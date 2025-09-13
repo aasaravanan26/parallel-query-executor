@@ -44,12 +44,17 @@ def where_clause_validator(plan, data_dir) -> bool:
     where_clause = defaultdict(list)
     source = plan.source_tables
     if plan.filter:
-        # TO DO: add support for "OR" in chain of where clauses
         clauses = re.split(r"\s+(and|or)\s+", plan.filter, flags=re.IGNORECASE)
         for clause in clauses:
-            if 'and' == clause:
+            if clause in {'and', 'or'}:
                 continue
-            (col, sign, value) = clause.split(" ")
+            
+            pattern = r"^\s*([\w\.]+)\s*(=|<=|>=|<|>)\s*'?(.*?)'?\s*$"
+            match = re.match(pattern, clause)
+            if not match:
+                raise ValueError(f"Invalid clause: {clause}")
+            col, sign, value = match.groups()
+
              # TO DO: prevent case like where name > 5
             if '.' in col:
                 table_name, col = col.split('.', 1)
