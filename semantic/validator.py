@@ -41,40 +41,74 @@ def order_by_validator(plan, data_dir) -> bool:
     return True
 
 def where_clause_validator(plan, data_dir) -> bool:
-    where_clause = defaultdict(list)
-    source = plan.source_tables
-    if plan.filter:
-        clauses = re.split(r"\s+(and|or)\s+", plan.filter, flags=re.IGNORECASE)
-        for clause in clauses:
-            if clause in {'and', 'or'}:
-                continue
-            
-            pattern = r"^\s*([\w\.]+)\s*(=|<=|>=|<|>)\s*'?(.*?)'?\s*$"
-            match = re.match(pattern, clause)
-            if not match:
-                raise ValueError(f"Invalid clause: {clause}")
-            col, sign, value = match.groups()
+    if not plan.filter:
+        plan.single_filter = None
+        plan.join_filters = None
+        return
+    
+    single_filters = defaultdict(list)
+    join_filters = []
 
-             # TO DO: prevent case like where name > 5
+    source = plan.source_tables
+
+    tokens = re.split(r"\s+(and|or)\s+", plan.filter, flags=re.IGNORECASE)
+    logical_ops = [] # TO DO: and / or precedence tree needed
+
+    for token in tokens:
+        token = token.strip()
+        if not token:
+            continue
+        
+        if token.lower() in ('and', 'or'):
+            logical_ops.append(token.lower())
+            continue
+        
+        pattern = r"^\s*([\w\.]+)\s*(=|<=|>=|<|>)\s*['\"]?(.*?)['\"]?\s*$"
+        match = re.match(pattern, token)
+        if not match:
+            raise ValueError(f"Invalid WHERE clause {token}")
+
+        left, op, right = match.groups()
+
+        def resolve_column(col): 
             if '.' in col:
                 table_name, col = col.split('.', 1)
                 if table_name not in source:
                     raise ValueError(f"WHERE clause references unknown table {table_name}")
-                file_path = os.path.join(data_dir, f"{table_name}.parquet")
-                schema = pq.read_schema(file_path)
-                columns = set([c.lower() for c in schema.names])
+                columns, _ = load_table_schema(data_dir, table_name)
                 if col.lower() not in columns:
                     raise ValueError(f"WHERE clause column {col} not found in table {table_name}")
+                return (table_name, col, True)
             else:
+                found = False
+                pair = (None, col, False)
                 for table in source:
-                    columns, schema = load_table_schema(data_dir, table)
-                    if col.lower() in columns:
-                        where_clause[table].append((col, sign, value))
-                # TO DO: raise an assert here if a column is not found in any table
-        plan.filter = where_clause
-    else:
-        plan.filter = None
-    return True
+                    columns, _ = load_table_schema(data_dir, table)
+                    if col.lower() in columns and not found:
+                        pair = (table, col, True)
+                        found = True
+                    elif col.lower() in columns and found:
+                        raise ValueError(f"WHERE clause column {col} referenced in multiple tables")
+                return pair
+        
+        left_table, left_column, left_is_col = resolve_column(left)
+        right_table, right_column, right_is_col = resolve_column(right)
+
+        if left_is_col and right_is_col and left_table != right_table:
+            join_filters.append((left_table, left_column, op, right_table, right_column))
+        elif left_is_col and not right_is_col:
+            single_filters[left_table].append((left_column, op, right_column))
+        elif not left_is_col and right_is_col:
+            single_filters[right_table].append((right_column, op, left_column))
+        else:
+            raise ValueError(f"Invalid WHERE clause {token} (no table column found)")
+        
+    plan.single_filters = single_filters
+    plan.join_filters = join_filters
+    plan.filter = None
+    logging.debug(f"Single filters: {plan.single_filters}")
+    logging.debug(f"Join filters: {plan.join_filters}")
+    return
 
 def validate_logical_plan(plan, data_dir) -> bool:
 
