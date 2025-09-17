@@ -114,6 +114,7 @@ def multi_table_execute(plan, tables, df_arr):
         proj_cols = [c.lower() for c in plan.col_proj[table] if c.lower() in df.columns]
         if proj_cols:
             df_arr[table] = df[proj_cols]
+            df_arr[table].columns = [f"{table}.{col}" for col in df_arr[table].columns]
     
     joined_df = None
     if plan.join_filters:
