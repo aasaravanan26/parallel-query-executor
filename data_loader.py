@@ -2,7 +2,6 @@ import pandas as pd
 import os
 
 # sample data
-
 df_emp = pd.DataFrame({
     "id": [1, 2, 3],
     "name": ["Alice", "Bob", "Charlie"],

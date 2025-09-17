@@ -1,5 +1,6 @@
 import logging
 from semantic.validator import load_table_schema
+from cache.results_cache import clear_all_cache
 
 def handle_session_command(cmd):
     if not cmd:
@@ -21,10 +22,15 @@ def handle_session_command(cmd):
                 ValueError("Invalid session setting")
         else:
             ValueError("Invalid session setting")
+        print("✅ Trace level set.")
         return True
     elif cmd == "SET TRACE OFF":
         logging.getLogger().setLevel(logging.CRITICAL + 1)
-        print("LOGGER disabled.")
+        print("❌ Tracing disabled.")
+        return True
+    elif cmd == "SET CACHE OFF":
+        clear_all_cache()
+        print("✅ Cache cleared.")
         return True
     return False
 
