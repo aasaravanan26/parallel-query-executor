@@ -49,6 +49,7 @@ if __name__ == "__main__":
         # 2. Parse Query into a logical plan
         try:
             plan = parse_query(query)
+            logging.debug("Parsed query.")
         except ValueError as error:
             print("Error:", error)
             exit(1)
@@ -59,6 +60,7 @@ if __name__ == "__main__":
             base_dir = os.path.dirname(os.path.abspath(__file__))
             data_dir = os.path.join(base_dir, "data")
             plan = validate_logical_plan(plan, data_dir)
+            logging.debug("Validated query semantics.")
         except (FileNotFoundError, ValueError) as error:
             print("Error:", error)
             exit(1)

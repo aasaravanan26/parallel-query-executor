@@ -114,7 +114,6 @@ def multi_table_execute(plan, tables, df_arr):
         proj_cols = [c.lower() for c in plan.col_proj[table] if c.lower() in df.columns]
         if proj_cols:
             df_arr[table] = df[proj_cols]
-            df_arr[table].columns = [f"{table}.{col}" for col in df_arr[table].columns]
     
     joined_df = None
     if plan.join_filters:
@@ -130,6 +129,8 @@ def multi_table_execute(plan, tables, df_arr):
                                 suffixes=(f"_{t1}", f"_{t2}"))
     else:
         # do a cross join on all tables
+        for table in tables:
+            df_arr[table].columns = [f"{table}.{col}" for col in df_arr[table].columns]
         dfs = [df_arr[t] for t in tables]
         joined_df = dfs[0]
         for next_df in dfs[1:]:
@@ -140,7 +141,6 @@ def multi_table_execute(plan, tables, df_arr):
             by=[c.lower() for c in plan.order_by],
             ascending=(plan.order_dir != "DESC")
         )
-        
     return joined_df
 
 def execute_plan(plan, data_dir):

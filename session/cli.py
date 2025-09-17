@@ -28,7 +28,7 @@ def handle_session_command(cmd):
         logging.getLogger().setLevel(logging.CRITICAL + 1)
         print("❌ Tracing disabled.")
         return True
-    elif cmd == "SET CACHE OFF":
+    elif cmd == "SET CACHE CLEAR":
         clear_all_cache()
         print("✅ Cache cleared.")
         return True
