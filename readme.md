@@ -10,12 +10,6 @@ A lightweight local parallel query engine that demonstrates distributed-style qu
 - fetching results in parallel
 
 ## Architecture
-1. User Query -> Check Redis cache  
-1a. Upon Cache Hit -> return cached result rows  
-1b. Upon Cache Miss -> Query Planner -> Semantic Analysis -> Query Executor  
-2. Executor uses pandas DataFrames to perform joins, apply filters and retrieve the column projections.  
-3. Cache results -> return resulting rows to user
-
 - User Query
   - Check Redis Cache
     - Cache Hit → Return cached result
