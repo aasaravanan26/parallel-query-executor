@@ -1,6 +1,7 @@
 import logging
 from semantic.validator import load_table_schema
 from cache.results_cache import clear_all_cache
+import session
 
 def handle_session_command(cmd):
     if not cmd:
@@ -22,15 +23,33 @@ def handle_session_command(cmd):
                 ValueError("Invalid session setting")
         else:
             ValueError("Invalid session setting")
-        print("✅ Trace level set.")
+        print("Trace level set.")
         return True
     elif cmd == "SET TRACE OFF":
         logging.getLogger().setLevel(logging.CRITICAL + 1)
-        print("❌ Tracing disabled.")
+        print("Tracing disabled.")
         return True
-    elif cmd == "SET CACHE CLEAR":
+    elif cmd.startswith("SET CACHE CLEAR"):
         clear_all_cache()
-        print("✅ Cache cleared.")
+        print("Cache cleared.")
+        return True
+    elif cmd.startswith("SET PARALLEL"):
+        parts = cmd.split()
+        if len(parts) == 3:
+            try:
+                val = int(parts[2])
+                if val < 1:
+                    raise ValueError
+                session.PARALLEL_LEVEL = val
+                print(f"Parallel level set to {val}")
+            except ValueError:
+                if parts[2] == "OFF":
+                    print(f"Parallel level set to default (1)")
+                    session.PARALLEL_LEVEL = 1
+                    return True
+                print("Invalid parallel level. Must be a positive integer.")
+        else:
+            print("Usage: SET PARALLEL <num>")
         return True
     return False
 
