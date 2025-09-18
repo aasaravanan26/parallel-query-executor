@@ -2,6 +2,8 @@ import os
 import logging
 import pyarrow.parquet as pq
 import pandas as pd
+from executor.executor_parallel import parallel_execute_single_table
+from executor.execute_helper import column_filter
 
 def single_table_execute(plan, table, df):
     df.columns = df.columns.str.lower()
@@ -15,43 +17,7 @@ def single_table_execute(plan, table, df):
 
     # WHERE clause, apply single filters
     if plan.single_filters:
-        expressions = plan.single_filters[table]
-        for (col, op, value) in expressions:
-            value = value.strip("'\"")
-
-            # check whether the value is int/float
-            try:
-                if "." in value:
-                    value = float(value)
-                else:
-                    value = int(value)
-            except:
-                pass
-
-            if op == "=":
-                # For string, need case-insensitive comparison
-                if isinstance(value, str):
-                    df = df[df[col].str.lower() == value.lower()]
-                else:
-                    df = df[df[col] == value]
-            elif op == ">":
-                if isinstance(value, str):
-                    raise TypeError(f"Operator {op} not supported with str")
-                df = df[df[col] > value]
-            elif op == "<":
-                if isinstance(value, str):
-                    raise TypeError(f"Operator {op} not supported with str")
-                df = df[df[col] < value]
-            elif op == "<=":
-                if isinstance(value, str):
-                    raise TypeError(f"Operator {op} not supported with str")
-                df = df[df[col] <= value]
-            elif op == ">=":
-                if isinstance(value, str):
-                    raise TypeError(f"Operator {op} not supported with str")
-                df = df[df[col] >= value]
-            else:
-                raise NotImplementedError(f"Operator {op} not supported yet.")
+        df = column_filter(plan, df, table)
 
     # ORDER BY specified, apply it
     if plan.order_by:
@@ -69,44 +35,7 @@ def multi_table_execute(plan, tables, df_arr):
     # WHERE clause, apply single filters
     if plan.single_filters:
         for table, expressions in plan.single_filters.items():
-            df = df_arr[table]
-            for (col, op, value) in expressions:
-                value = value.strip("'\"")
-
-                # check whether the value is int/float
-                try:
-                    if "." in value:
-                        value = float(value)
-                    else:
-                        value = int(value)
-                except:
-                    pass
-
-                if op == "=":
-                    # For string, need case-insensitive comparison
-                    if isinstance(value, str):
-                        df = df[df[col].str.lower() == value.lower()]
-                    else:
-                        df = df[df[col] == value]
-                elif op == ">":
-                    if isinstance(value, str):
-                        raise TypeError(f"Operator {op} not supported with str")
-                    df = df[df[col] > value]
-                elif op == "<":
-                    if isinstance(value, str):
-                        raise TypeError(f"Operator {op} not supported with str")
-                    df = df[df[col] < value]
-                elif op == "<=":
-                    if isinstance(value, str):
-                        raise TypeError(f"Operator {op} not supported with str")
-                    df = df[df[col] <= value]
-                elif op == ">=":
-                    if isinstance(value, str):
-                        raise TypeError(f"Operator {op} not supported with str")
-                    df = df[df[col] >= value]
-                else:
-                    raise NotImplementedError(f"Operator {op} not supported yet.")
-            df_arr[table] = df
+            df_arr[table] = column_filter(plan, df_arr[table], table)
     
     # only get the column projections
     for table in tables:
@@ -122,6 +51,7 @@ def multi_table_execute(plan, tables, df_arr):
             if op != '=':
                 raise NotImplementedError(f"Only equi-joins supported now")
             
+            # perform inner-join between tables
             joined_df = pd.merge(joined_df,
                                 df_arr[t2],
                                 left_on=c1.lower(),
@@ -143,16 +73,19 @@ def multi_table_execute(plan, tables, df_arr):
         )
     return joined_df
 
-def execute_plan(plan, data_dir):
+def execute_plan(plan, data_dir, parallel):
     table_data = {}
     for table in plan.source_tables:
         file_path = os.path.join(data_dir, f"{table}.parquet")
         table_data[table] = pq.read_table(file_path).to_pandas()
     
     # single table query processing
-    if len(table_data) == 1:
+    if len(table_data) == 1 and parallel == 1:
         df = single_table_execute(plan, plan.source_tables[0], table_data[table])
-        return df
-    else:
+    elif len(table_data) == 1:
+        df = parallel_execute_single_table(plan, table_data[table], parallel)
+    elif parallel == 1:
         df = multi_table_execute(plan, plan.source_tables, table_data)
-        return df
+    else:
+        raise NotImplementedError("Parallel support for multiple tables not implemented.")
+    return df

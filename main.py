@@ -3,8 +3,10 @@ from parser.sql_parser import parse_query
 from executor.executor import execute_plan
 from semantic.validator import validate_logical_plan
 from cache.results_cache import check_results_cache, cache_query
+import session
 import logging
 import os
+
 
 logging.basicConfig(
     level=logging.CRITICAL,
@@ -70,7 +72,7 @@ if __name__ == "__main__":
         try:
             base_dir = os.path.dirname(os.path.abspath(__file__))
             data_dir = os.path.join(base_dir, "data")
-            results = execute_plan(plan, data_dir)
+            results = execute_plan(plan, data_dir, session.PARALLEL_LEVEL)
             cache_query(query, results)
         except (FileNotFoundError, NotImplementedError, ValueError, KeyError) as error:
             print("Error:", error)

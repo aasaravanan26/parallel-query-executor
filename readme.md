@@ -44,14 +44,18 @@ A lightweight local parallel query engine that demonstrates distributed-style qu
     - Apply ORDER BY: sort results on specified columns and directions
     - Store results in Redis Cache with expiry
     - return result: final Pandas DataFrame of query results
+  - Parallel Support
+    - Single-table scan & filter runs in parallel using ThreadPoolExecutor
+    - Number of workers controlled by SET PARALLEL <N> session command
+    - Each worker processes a chunk (partition) of the table’s rows, applies projections and filters, then results are merged back together
 
 ## Setup
 1. Install dependencies
 pip install pandas pyarrow redis
 
 2. Install & run Redis locally
-after downloading redis-stable
-make
+after downloading redis-stable  
+make  
 src/redis-server
 
 3. Create test data
@@ -64,3 +68,10 @@ python main.py
 1. SET TRACE LEVEL [DEBUG | ERROR | CRITICAL | WARNING] (useful for debugging purposes)
 2. SET TRACE OFF (to disable tracing)
 3. SET CACHE CLEAR (to clear cached query results)
+4. SET PARALLEL [NUM_WORKERS]
+
+## Work In-Progress
+1. Parallelism support for multi-table queries (JOINS)
+2. Query optimizer - cost based planner based on table's metadata
+3. Support for GROUP BY / HAVING / LIMIT / DISTINCT
+4. Caching of intermediate results
