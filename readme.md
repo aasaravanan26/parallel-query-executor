@@ -69,6 +69,7 @@ python main.py
 2. SET TRACE OFF (to disable tracing)
 3. SET CACHE CLEAR (to clear cached query results)
 4. SET PARALLEL [NUM_WORKERS]
+5. DESC [TABLE_NAME]
 
 ## Work In-Progress
 1. Parallelism support for multi-table queries (JOINS)
