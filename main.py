@@ -43,6 +43,7 @@ if __name__ == "__main__":
             if results is not None:
                 logging.debug("Fetching results from cache.")
                 print("\n", results.to_string(index=False), "\n")
+                print(f"\n {len(results)} rows selected.\n")
                 continue
         except Exception as e:
             print(f"Redis error: {e}")
@@ -84,3 +85,4 @@ if __name__ == "__main__":
             print("\nno rows selected.\n")
         else:        
             print("\n", results.to_string(index=False), "\n")
+            print(f"\n {len(results)} rows selected.\n")
