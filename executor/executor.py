@@ -4,9 +4,28 @@ import pyarrow.parquet as pq
 import pandas as pd
 from executor.executor_parallel import parallel_execute_single_table
 from executor.execute_helper import column_filter
+from session import session
 
 def single_table_execute(plan, table, df):
+
+    """ Execute plan on a single table.
+
+    Applies column projections, WHERE clause filters, and ORDER BY to table specified.
+
+    Args:
+        plan (LogicalPlan): logical plan containing filters, projections, and ordering.
+        table (str): source table name
+        df (pandas.DataFrame): DataFrame representing the table data.
+
+    Returns:
+        pandas.DataFrame: Filtered, projected, and sorted DataFrame for the table.
+    """
+
     df.columns = df.columns.str.lower()
+
+    # WHERE clause, apply single filters
+    if plan.single_filters:
+        df = column_filter(plan, df, table)
 
     # only get the column projections
     proj_cols = []
@@ -14,10 +33,6 @@ def single_table_execute(plan, table, df):
         if col.lower() in df:
             proj_cols.append(col.lower())
     df = df[proj_cols]
-
-    # WHERE clause, apply single filters
-    if plan.single_filters:
-        df = column_filter(plan, df, table)
 
     # ORDER BY specified, apply it
     if plan.order_by:
@@ -29,6 +44,25 @@ def single_table_execute(plan, table, df):
     return df
 
 def multi_table_execute(plan, tables, df_arr):
+
+    """Execute plan across multiple tables.
+
+    Handles single-table filters, column projections, join filters, and cross joins.
+    Performs inner joins for equi-joins or cross joins if no join conditions are present.
+    Applies ORDER BY sorting after joining tables together.
+
+    Args:
+        plan (LogicalPlan): logical plan containing filters, projections, join info, and ordering.
+        tables (list[str]): list of source tables
+        df_arr (dict[str, pandas.DataFrame]): map of source tables to its DataFrames.
+
+    Returns:
+        pandas.DataFrame: resulting DataFrame after joins, filters, projections, and sorting.
+
+    Raises:
+        NotImplementedError: if a non-equi join is requested.
+    """
+
     for table in df_arr.keys():
         df_arr[table].columns = df_arr[table].columns.str.lower()
 
@@ -73,17 +107,37 @@ def multi_table_execute(plan, tables, df_arr):
         )
     return joined_df
 
-def execute_plan(plan, data_dir, parallel):
+def execute_plan(plan, data_dir):
+
+    """Execute a logical plan 
+    
+    Load table data and use either single or multi-table execution based on session's PARALLEL_LEVEL
+    Currently, parallel execution for multiple tables is not supported.
+
+    Args:
+        plan (LogicalPlan): logical plan of the query
+        data_dir (str): directory containing parquet table files.
+
+    Returns:
+        pandas.DataFrame: final query result as a DataFrame.
+
+    Raises:
+        NotImplementedError: if parallel execution is used for multiple tables.
+    """
+
     table_data = {}
     for table in plan.source_tables:
         file_path = os.path.join(data_dir, f"{table}.parquet")
         table_data[table] = pq.read_table(file_path).to_pandas()
     
+    logging.debug(f"Executing with parallelism {session.PARALLEL_LEVEL}")
+    parallel = session.PARALLEL_LEVEL
+    
     # single table query processing
     if len(table_data) == 1 and parallel == 1:
         df = single_table_execute(plan, plan.source_tables[0], table_data[table])
     elif len(table_data) == 1:
-        df = parallel_execute_single_table(plan, table_data[table], parallel)
+        df = parallel_execute_single_table(plan, table_data[table])
     elif parallel == 1:
         df = multi_table_execute(plan, plan.source_tables, table_data)
     else:

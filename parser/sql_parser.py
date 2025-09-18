@@ -1,23 +1,50 @@
 from planner.logical_plan import LogicalPlan
 from collections import defaultdict
-import logging
 
 def reformat_col_proj(col_proj: str):
+    
+    """ Parses column projections and maps which table column belongs to (if specified)
+    
+    Args:
+        col_proj (str): column projections
+    Returns:
+        col_proj_dict (dict): map of source table to column projections
+    
+    """
     col_proj_dict = defaultdict(list)
     col_proj = col_proj.split(',')
     for col in col_proj:
-        if '.' in col:
+        if '.' in col: # TABLE_NAME.COLUMN explicitly specified
             table, column = col.split('.', 1)
             col_proj_dict[table.lower()].append(column)
-        else:
+        else: # resolve which column table belongs to in semantic analysis
             col_proj_dict[None].append(col)
     return col_proj_dict
 
 def reformat_source_tables(source_tables: str) -> list:
+
+    """ Parses source tables into list of source tables
+    
+    Args:
+        source_tables (str): source table string
+    Returns:
+        source_tables (list): list of source tables
+    
+    """
     source_tables = source_tables.split(',')
     return source_tables
 
 def valid_format(sql_text: str) -> LogicalPlan | None:
+
+    """ Main function to parse a SQL query string into a logical plan.
+    
+    Args:
+        sql_text (str): query string
+    Returns:
+        LogicalPlan: root of logical operator tree
+    
+    """
+
     if not sql_text:
         return False
     

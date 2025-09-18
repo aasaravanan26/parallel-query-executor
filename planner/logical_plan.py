@@ -1,3 +1,4 @@
+# Logical Plan Structure
 class LogicalPlan:
     def __init__(self, col_proj=None, source_tables=None, filter=None, order_by=None, order_dir=None, sel_all=None):
         self.col_proj = col_proj # defaultdict(list) column projections for each source table
@@ -14,6 +15,8 @@ class LogicalPlan:
                 f"  col_proj={self.col_proj},\n"
                 f"  source_tables={self.source_tables},\n"
                 f"  filter={self.filter},\n"
+                f"  single_filters={self.single_filters},\n"
+                f"  join_filters={self.join_filters},\n"
                 f"  order_by={self.order_by},\n"
                 f"  order_dir={self.order_dir}\n"
                 f"  select_all = {self.sel_all})")

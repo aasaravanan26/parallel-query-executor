@@ -5,6 +5,22 @@ from pyarrow import parquet as pq
 from collections import defaultdict
 
 def load_table_schema(data_dir, table):
+
+    """ Load schema of a table from a parquet file.
+
+    Args:
+        data_dir (str): path to directory containing parquet files.
+        table (str): table name
+
+    Returns:
+        tuple:
+            - set[str]: lowercased column names in the table
+            - pyarrow.Schema: full schema object of the table
+    Raises:
+        FileNotFoundError: if parquet file does not exist
+        RuntimeError: if schema cannot be read
+    """
+
     file_path = os.path.join(data_dir, f"{table}.parquet")
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"Table {table} not found")
@@ -15,6 +31,19 @@ def load_table_schema(data_dir, table):
     return set([col.lower() for col in schema.names]), schema
 
 def order_by_validator(plan, data_dir) -> bool:
+
+    """ Validate ORDER BY columns in a logical plan.
+
+    Args:
+        plan (LogicalPlan): logical plan containing order_by info
+        data_dir (str): directory containing parquet tables
+
+    Returns:
+        bool: True if order_by columns are valid
+    Raises:
+        ValueError: if column references unknown table or is ambiguous
+    """
+
     # check if columns in order by exists in schema
     order_by_dict = defaultdict(list)
     source = plan.source_tables
@@ -41,6 +70,23 @@ def order_by_validator(plan, data_dir) -> bool:
     return True
 
 def where_clause_validator(plan, data_dir) -> bool:
+
+    """ Parse WHERE clause and separate between single-table filters and join filters.
+        "COLUMN < VALUE" vs "TABLE_1.COLUMN = TABLE_2.COLUMN"
+
+    Args:
+        plan (LogicalPlan): logical plan containing filter string
+        data_dir (str): directory containing parquet tables
+
+    Modifies:
+        plan.single_filters (defaultdict[list]): single-table filters
+        plan.join_filters (list): join conditions across tables
+        plan.filter: set to None after processing (only valid during sql_parser, so invalidate here)
+
+    Raises:
+        ValueError: if WHERE clause is invalid, ambiguous, or references unknown table/column
+    """
+
     if not plan.filter:
         plan.single_filter = None
         plan.join_filters = None

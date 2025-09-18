@@ -1,12 +1,14 @@
 # This file contains all helper functions needed for EXECUTOR module.
+import logging
 
 # Helper function to filter a given table based on WHERE predicates
 # WHERE predicates are stored in a plan as a dictionary (key = table, value = set of predicates)
 def column_filter(plan, df, table):
+    logging.debug("Applying WHERE predicates")
     expressions = plan.single_filters[table]
     for (col, op, value) in expressions:
         value = value.strip("'\"")
-
+        
         # check whether the value is int/float
         try:
             if "." in value:
