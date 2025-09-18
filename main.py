@@ -3,7 +3,7 @@ from parser.sql_parser import parse_query
 from executor.executor import execute_plan
 from semantic.validator import validate_logical_plan
 from cache.results_cache import check_results_cache, cache_query
-import session
+from session import session
 import logging
 import os
 
@@ -34,8 +34,8 @@ if __name__ == "__main__":
             if handle_desc_command(query, data_dir=data_dir):
                 continue
         except (FileNotFoundError, ValueError) as error:
-            print("Error:", error)
-            exit(1)
+            print(error)
+            continue
 
         # 2a. Check whether SQL text is cached in Redis
         try:
@@ -72,6 +72,7 @@ if __name__ == "__main__":
         try:
             base_dir = os.path.dirname(os.path.abspath(__file__))
             data_dir = os.path.join(base_dir, "data")
+            logging.debug(f"Executing with parallelism {session.PARALLEL_LEVEL}")
             results = execute_plan(plan, data_dir, session.PARALLEL_LEVEL)
             cache_query(query, results)
         except (FileNotFoundError, NotImplementedError, ValueError, KeyError) as error:

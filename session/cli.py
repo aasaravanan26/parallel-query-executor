@@ -1,7 +1,7 @@
 import logging
 from semantic.validator import load_table_schema
 from cache.results_cache import clear_all_cache
-import session
+from session import session
 
 def handle_session_command(cmd):
     if not cmd:
